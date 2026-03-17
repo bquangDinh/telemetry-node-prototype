@@ -8,6 +8,6 @@
 #ifndef INC_UTILITIES_H_
 #define INC_UTILITIES_H_
 
-void usb_printf(const char* s);
+void uart_print(const char* s);
 
 #endif /* INC_UTILITIES_H_ */

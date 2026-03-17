@@ -10,6 +10,7 @@
 #include "stm32f1xx_hal.h"
 
 #include "ds18b20.h"
+#include "can.h"
 #include "utilities.h"
 
 #define DS18B20_DAT_GPIO_PORT GPIOB
@@ -86,14 +87,14 @@ static void rom64_to_string(uint64_t rom, char *out);
 static uint8_t ds18b20_crc8(const uint8_t *data, uint8_t len);
 
 void ds18b20_init() {
-	usb_printf("Checking if DS18B20 sensor is presence!\r\n");
+	uart_print("Checking if DS18B20 sensor is presence!\r\n");
 
 	HAL_TIM_Base_Start(DS18B20_TIMER);
 
 	if (reset() == DS18B20_DEVICE_PRESENCE) {
-		usb_printf("DS18B20 sensor is presence!\r\n");
+		uart_print("DS18B20 sensor is presence!\r\n");
 	} else {
-		usb_printf("DS18B20 sensor is not presence!\r\n");
+		uart_print("DS18B20 sensor is not presence!\r\n");
 		return;
 	}
 
@@ -214,7 +215,7 @@ static device_presence_t reset() {
 }
 
 static void perform_search() {
-	usb_printf("Perform search all DS18B20 sensors\r\n");
+	uart_print("Perform search all DS18B20 sensors\r\n");
 
 	// Reset search state
 	last_conflict_bit = 0;
@@ -228,13 +229,15 @@ static void perform_search() {
 	char rom_str[24];
 	char out_msg[256];
 
-	while (search(device_addr)) {
+	while (search(device_addr) && rom_count < DS18B20_MAX_SENSORS) {
 		rom_to_string(device_addr, rom_str);
 
 		sprintf(out_msg, "[DS18B20] Sensor %d ROM: %s\r\n", sensor_num,
 				rom_str);
 
-		usb_printf(out_msg);
+		uart_print(out_msg);
+
+		sensor_num++;
 
 		// Add to ROM list
 		if (rom_count < DS18B20_MAX_SENSORS) {
@@ -244,13 +247,13 @@ static void perform_search() {
 
 			rom_count++;
 
-			usb_printf("[DS18B20] Added sensor to list\r\n");
+			uart_print("[DS18B20] Added sensor to list\r\n");
 		} else {
-			usb_printf("[DS18B20] Maximum sensors reached\r\n");
+			uart_print("[DS18B20] Maximum sensors reached\r\n");
 		}
 	}
 
-	usb_printf("Search done\r\n");
+	uart_print("Search done\r\n");
 }
 
 static uint8_t search(uint8_t new_addr[8]) {
@@ -262,12 +265,12 @@ static uint8_t search(uint8_t new_addr[8]) {
 	uint8_t first_read_bit, second_read_bit;
 
 	if (last_device_flag) {
-		usb_printf("[DS18B20] Search - last device flag set\r\n");
+		uart_print("[DS18B20] Search - last device flag set\r\n");
 		return 0;
 	}
 
 	if (reset() == DS18B20_DEVICE_NOT_PRESENCE) {
-		usb_printf(
+		uart_print(
 				"[DS18B20] Search - reset failed due to no device presence on the bus\r\n");
 		return 0;
 	}
@@ -279,7 +282,7 @@ static uint8_t search(uint8_t new_addr[8]) {
 		second_read_bit = ds18b20_read_bit();
 
 		if (first_read_bit == 1 && second_read_bit == 1) {
-			usb_printf("[DS18B20] Search - no device presence on the bus\r\n");
+			uart_print("[DS18B20] Search - no device presence on the bus\r\n");
 			break; // no devices
 		}
 
@@ -333,7 +336,7 @@ static uint8_t search(uint8_t new_addr[8]) {
 		return 1;
 	}
 
-	usb_printf("[DS18B20] Search - end of search\r\n");
+	uart_print("[DS18B20] Search - end of search\r\n");
 
 	return 0;
 }
@@ -346,6 +349,9 @@ static void read_temp_all() {
 	int temp;
 	char out_msg[24];
 	char rom_str[24];
+
+	uint32_t base_can_id = 0x1;
+	uint8_t can_data[8];
 
 	while (i < DS18B20_MAX_SENSORS) {
 		if (rom_list[i] == 0) {
@@ -362,7 +368,7 @@ static void read_temp_all() {
 
 		// First, reset
 		if (reset() == DS18B20_DEVICE_NOT_PRESENCE) {
-			usb_printf(
+			uart_print(
 					"[DS18B20] Reading temp failed due to no device presence on the bus\r\n");
 			break;
 		}
@@ -381,7 +387,7 @@ static void read_temp_all() {
 
 		// reset again
 		if (reset() == DS18B20_DEVICE_NOT_PRESENCE) {
-			usb_printf(
+			uart_print(
 					"[DS18B20] Reading temp failed due to no device presence on the bus\r\n");
 			break;
 		}
@@ -410,21 +416,26 @@ static void read_temp_all() {
 			// read temp
 			raw_temp = (int16_t) (((uint16_t) scratchpad[1] << 8) | scratchpad[0]);
 
-			temp = raw_temp / 16;
+			temp = (raw_temp * 100) / 16;
+
+			can_data[0] = scratchpad[0];
+			can_data[1] = scratchpad[1];
+
+			can_send(base_can_id + i, can_data);
 
 			rom64_to_string(rom_list[i], rom_str);
 
-			usb_printf("[DS18B20] ");
+			uart_print("[DS18B20] ");
 
-			usb_printf(rom_str);
+			uart_print(rom_str);
 
 			sprintf(out_msg, " %d C\r\n", temp);
 
-			usb_printf(out_msg);
+			uart_print(out_msg);
 
 			i++;
 		} else {
-			usb_printf("Data corrupted. Try again...\r\n");
+			uart_print("Data corrupted. Try again...\r\n");
 		}
 	}
 }

@@ -6,11 +6,13 @@
  */
 #include <string.h>
 
-#include "usbd_cdc_if.h"
-
+#include "stm32f1xx_hal.h"
 #include "utilities.h"
 
-void usb_printf(const char *s) {
-	while (CDC_Transmit_FS((uint8_t*) s, strlen(s)) == USBD_BUSY) {
-	}
+#define UTILITY_UART (&huart2)
+
+extern UART_HandleTypeDef huart2;
+
+void uart_print(const char* s) {
+	HAL_UART_Transmit(UTILITY_UART, (uint8_t*)s, strlen(s), HAL_MAX_DELAY);
 }
