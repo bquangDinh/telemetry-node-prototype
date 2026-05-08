@@ -89,6 +89,8 @@ static uint8_t ds18b20_crc8(const uint8_t *data, uint8_t len);
 void ds18b20_init() {
 	uart_print("Checking if DS18B20 sensor is presence!\r\n");
 
+	HAL_TIM_Base_Stop(DS18B20_TIMER);
+
 	HAL_TIM_Base_Start(DS18B20_TIMER);
 
 	if (reset() == DS18B20_DEVICE_PRESENCE) {
@@ -264,6 +266,9 @@ static uint8_t search(uint8_t new_addr[8]) {
 	uint8_t search_direction = 0;
 	uint8_t first_read_bit, second_read_bit;
 
+//	char rom_str[24];
+	char dg_msg[128];
+
 	if (last_device_flag) {
 		uart_print("[DS18B20] Search - last device flag set\r\n");
 		return 0;
@@ -281,8 +286,17 @@ static uint8_t search(uint8_t new_addr[8]) {
 		first_read_bit = ds18b20_read_bit();
 		second_read_bit = ds18b20_read_bit();
 
+		sprintf(dg_msg, "[DS18B20] %d %d\r\n", first_read_bit, second_read_bit);
+
+		uart_print(dg_msg);
+
 		if (first_read_bit == 1 && second_read_bit == 1) {
-			uart_print("[DS18B20] Search - no device presence on the bus\r\n");
+			char debug_early[80];
+
+			sprintf(debug_early, "[DS18B20] Early exit at bit_idx=%d, rom_byte_idx=%d - no device response\r\n", bit_idx, rom_byte_idx);
+
+			uart_print(debug_early);
+
 			break; // no devices
 		}
 
@@ -336,7 +350,9 @@ static uint8_t search(uint8_t new_addr[8]) {
 		return 1;
 	}
 
-	uart_print("[DS18B20] Search - end of search\r\n");
+	sprintf(dg_msg, "[DS18B20] Search - end of search at bit_idx=%d (expected >64)\r\n", bit_idx);
+
+	uart_print(dg_msg);
 
 	return 0;
 }

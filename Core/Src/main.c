@@ -115,7 +115,7 @@ int main(void)
 
 		can_update();
 
-		HAL_Delay(500);
+		HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
