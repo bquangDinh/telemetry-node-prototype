@@ -14,7 +14,7 @@
 #include "utilities.h"
 
 #define DS18B20_DAT_GPIO_PORT GPIOB
-#define DS18B20_DAT_GPIO_PIN GPIO_PIN_1
+#define DS18B20_DAT_GPIO_PIN GPIO_PIN_0
 #define DS18B20_TIMER (&htim2)
 
 #define DS18B20_MAX_SENSORS 4
@@ -266,9 +266,6 @@ static uint8_t search(uint8_t new_addr[8]) {
 	uint8_t search_direction = 0;
 	uint8_t first_read_bit, second_read_bit;
 
-//	char rom_str[24];
-	char dg_msg[128];
-
 	if (last_device_flag) {
 		uart_print("[DS18B20] Search - last device flag set\r\n");
 		return 0;
@@ -286,17 +283,7 @@ static uint8_t search(uint8_t new_addr[8]) {
 		first_read_bit = ds18b20_read_bit();
 		second_read_bit = ds18b20_read_bit();
 
-		sprintf(dg_msg, "[DS18B20] %d %d\r\n", first_read_bit, second_read_bit);
-
-		uart_print(dg_msg);
-
 		if (first_read_bit == 1 && second_read_bit == 1) {
-			char debug_early[80];
-
-			sprintf(debug_early, "[DS18B20] Early exit at bit_idx=%d, rom_byte_idx=%d - no device response\r\n", bit_idx, rom_byte_idx);
-
-			uart_print(debug_early);
-
 			break; // no devices
 		}
 
@@ -349,10 +336,6 @@ static uint8_t search(uint8_t new_addr[8]) {
 
 		return 1;
 	}
-
-	sprintf(dg_msg, "[DS18B20] Search - end of search at bit_idx=%d (expected >64)\r\n", bit_idx);
-
-	uart_print(dg_msg);
 
 	return 0;
 }
